@@ -111,11 +111,14 @@ router.post("/open", async (req, res) => {
 
   try {
     const meta = await readMeta();
-    const idx  = meta.findIndex(m => m.username === username && m.curriculumID === curriculumID);
-    if (idx === -1) return res.status(404).json({ error: "Curriculum not found" });
+    const idx = meta.findIndex(m => m.username === username && m.curriculumID === curriculumID);
 
-    meta[idx].openCount  = (meta[idx].openCount || 0) + 1;
-    meta[idx].lastOpened = new Date().toISOString();
+    if (idx === -1) {
+      meta.push({ username, curriculumID, name: `Curriculum ${curriculumID}`, theme: "#ffffff", openCount: 1, lastOpened: new Date().toISOString() });
+    } else {
+      meta[idx].openCount  = (meta[idx].openCount || 0) + 1;
+      meta[idx].lastOpened = new Date().toISOString();
+    }
 
     await writeMeta(meta);
     res.json({ status: "success" });

@@ -26,5 +26,13 @@
     "curriculumID": 4,
     "name": "wow",
     "theme": "#ffffff"
+  },
+  {
+    "username": "user2",
+    "curriculumID": 1,
+    "name": "Curriculum 1",
+    "theme": "#ffffff",
+    "openCount": 1,
+    "lastOpened": "2026-05-03T18:09:24.393Z"
   }
 ]
