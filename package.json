@@ -1,0 +1,21 @@
+{
+  "name": "articulate-components",
+  "version": "1.0.0",
+  "description": "## Text and Statements",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "nodemon --watch . --ext js,html,css --ignore save.json server/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "globals": "^16.5.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "fs": "^0.0.1-security"
+  },
+  "type": "module"
+}

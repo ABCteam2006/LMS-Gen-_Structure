@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curriculum</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="curriculumClient.js" defer></script>
+</head>
+<body class="curriculum-page">
+  <h2>Your Curricula</h2>
+  <div class="row">
+    <select id="select" style="flex:1; padding:6px; font-size:14px;"></select>
+    <button id="pickCurriculum">Open</button>
+  </div>
+
+  <div class="row" style="margin-top:6px;">
+    <button id="toggleRename">Rename / Recolor</button>
+  </div>
+
+  <div id="renameForm" style="display:none;">
+    <div class="row">
+      <input type="text" id="renameName" placeholder="New name">
+      <input type="color" id="renameTheme">
+      <button id="saveRename">Save</button>
+    </div>
+  </div>
+
+  <hr>
+
+  <h2>New Curriculum</h2>
+  <div class="row">
+    <input type="text" id="newName" placeholder="Name">
+    <input type="color" id="newTheme" value="#ffffff">
+    <button id="genCurriculum">Create</button>
+  </div>
+</body>
+</html>

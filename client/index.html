@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Test</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Patch favion error -->
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+
+</head>
+<body class="index-page">
+  <h2 id="curriculumName" style="margin:0 0 10px 0;"></h2>
+
+  <!-- Original toolbar (visible) -->
+  <nav class="toolbar" id="toolContainer">
+    <input type="text" id="text" placeholder="Enter text" style="display: inline-block;">
+    <button data-tag="h1" data-type="heading">Headings</button>
+    <button data-tag="h2" data-type="subheading">Subheadings</button>
+    <button data-tag="ol" data-type="orderedList">List</button>
+    <button data-tag="img" data-type="image">Image</button>
+    <button data-tag="video" data-type="video">Video</button>
+    <button id = "multipleChoice" data-tag="select" data-type="multipleChoice">Multiple Choice</button>
+    <button id = "dragAndDrop" data-tag="div" data-type="dragAndDrop">Drag And Drop</button>
+    <button id = "flashcards" data-tag="div" data-type="flashcards">Flashcards</button>
+    <!-- <div class="dragObject"></div> -->
+  </nav>
+  <nav class="editOrDelete" id="editOrDelete">
+    <button data-action="edit">Edit</button>
+    <button data-action="delete">Delete</button>
+  </nav>
+  <div id="elementContainer">
+  </div>
+  <input type="file" id="imageUpload" accept="image/*" style="display:none">
+  <input type="file" id="videoUpload" accept="video/*" style="display:none">
+  <script type="module" src="index.js"></script>
+</body>
+</html>
