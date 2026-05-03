@@ -47,6 +47,7 @@ async function loadCurriculum() { // fetches the user's curricula from the serve
     currentCurriculumID = curriculumList[0].id; // default selection is the first curriculum
     highestCurriculumID = Math.max(...curriculumList.map(c => c.id)); // find the largest ID for generating the next one
     syncRenameForm(); // pre-fill the rename form with the selected curriculum's current data
+    renderQuickAccess(); // populate the most-recent and most-opened quick-access buttons
   } catch (e) {
     console.error("ERROR loading curriculum:", e); // log any unexpected network or parse errors
   }
@@ -64,9 +65,47 @@ select.addEventListener("change", () => { // fires whenever the user picks a dif
   syncRenameForm(); // update the rename form to match
 });
 
+function openCurriculum(id) { // records the open event then navigates to the editor
+  fetch("/curriculum/open", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ curriculumID: id })
+  }).catch(() => {}); // fire-and-forget; don't block navigation on failure
+  window.location.assign(`http://localhost:3000/?session=${id}`);
+}
+
+function renderQuickAccess() { // shows most-recent and most-opened quick-access buttons based on tracking data
+  const withOpens  = curriculumList.filter(c => c.openCount > 0);
+  const withRecent = curriculumList.filter(c => c.lastOpened);
+
+  const mostOpened = withOpens.reduce((a, b) => (b.openCount > a.openCount ? b : a), withOpens[0] || null);
+  const mostRecent = withRecent.reduce((a, b) => (b.lastOpened > a.lastOpened ? b : a), withRecent[0] || null);
+
+  const quickAccess    = document.getElementById("quickAccess");
+  const mostRecentRow  = document.getElementById("mostRecentRow");
+  const mostOpenedRow  = document.getElementById("mostOpenedRow");
+  const mostRecentBtn  = document.getElementById("mostRecentBtn");
+  const mostOpenedBtn  = document.getElementById("mostOpenedBtn");
+
+  if (mostRecent) {
+    mostRecentBtn.textContent = mostRecent.name;
+    mostRecentBtn.onclick = () => openCurriculum(mostRecent.id);
+    mostRecentRow.style.display = "flex";
+  }
+
+  if (mostOpened) {
+    mostOpenedBtn.textContent = `${mostOpened.name} (${mostOpened.openCount}×)`;
+    mostOpenedBtn.onclick = () => openCurriculum(mostOpened.id);
+    mostOpenedRow.style.display = "flex";
+  }
+
+  if (mostRecent || mostOpened) quickAccess.style.display = "block";
+}
+
 pickBtn.addEventListener("click", () => { // fires when the user clicks "Open"
   if (!currentCurriculumID) return alert("Please select a curriculum first."); // guard: nothing selected yet
-  window.location.assign(`http://localhost:3000/?session=${currentCurriculumID}`); // navigate to the editor for the selected curriculum
+  openCurriculum(currentCurriculumID);
 });
 
 toggleRename.addEventListener("click", () => { // fires when the user clicks "Rename / Recolor"
@@ -108,7 +147,7 @@ genBtn.addEventListener("click", async () => { // fires when the user clicks "Cr
     body: JSON.stringify({ curriculumID: nextID, name, theme }) // send the generated ID, name, and theme
   });
 
-  window.location.assign(`http://localhost:3000/?session=${nextID}`); // navigate directly to the new curriculum's editor
+  openCurriculum(nextID); // navigate directly to the new curriculum's editor
 });
 
 window.addEventListener("DOMContentLoaded", loadCurriculum); // wait for the HTML to fully load before fetching curricula

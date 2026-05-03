@@ -38,7 +38,13 @@ router.get("/", async (req, res) => {
 
     const curriculums = ids.map(id => {
       const m = meta.find(m => m.username === username && m.curriculumID === id);
-      return { id, name: m?.name || `Curriculum ${id}`, theme: m?.theme || "#ffffff" }; // fall back to defaults if no metadata saved yet
+      return {
+        id,
+        name:       m?.name       || `Curriculum ${id}`,
+        theme:      m?.theme      || "#ffffff",
+        openCount:  m?.openCount  || 0,
+        lastOpened: m?.lastOpened || null,
+      };
     });
 
     res.json({ username, curriculums });
@@ -89,6 +95,30 @@ router.post("/meta", async (req, res) => {
 
     await writeMeta(meta);
     res.json({ status: "success", entry });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /curriculum/open — increments openCount and records lastOpened timestamp for a curriculum
+router.post("/open", async (req, res) => {
+  if (!req.session.user)
+    return res.status(401).json({ status: "error", message: "Unauthorized" });
+
+  const username = req.session.user.username;
+  const { curriculumID } = req.body;
+  if (!curriculumID) return res.status(400).json({ error: "Missing curriculumID" });
+
+  try {
+    const meta = await readMeta();
+    const idx  = meta.findIndex(m => m.username === username && m.curriculumID === curriculumID);
+    if (idx === -1) return res.status(404).json({ error: "Curriculum not found" });
+
+    meta[idx].openCount  = (meta[idx].openCount || 0) + 1;
+    meta[idx].lastOpened = new Date().toISOString();
+
+    await writeMeta(meta);
+    res.json({ status: "success" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

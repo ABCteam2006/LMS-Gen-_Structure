@@ -3,7 +3,9 @@
     "username": "user1",
     "curriculumID": 2,
     "name": "boo",
-    "theme": "#12ab2b"
+    "theme": "#12ab2b",
+    "openCount": 2,
+    "lastOpened": "2026-05-03T18:06:22.959Z"
   },
   {
     "username": "user1",
@@ -14,8 +16,10 @@
   {
     "username": "user1",
     "curriculumID": 1,
-    "name": "uhhhhh",
-    "theme": "#16bb37"
+    "name": "bro",
+    "theme": "#16bb37",
+    "openCount": 2,
+    "lastOpened": "2026-05-03T18:06:12.635Z"
   },
   {
     "username": "user1",

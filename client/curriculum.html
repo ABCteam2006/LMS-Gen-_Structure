@@ -9,6 +9,18 @@
 </head>
 <body class="curriculum-page">
   <h2>Your Curricula</h2>
+
+  <div id="quickAccess" style="display:none; margin-bottom:12px;">
+    <div id="mostRecentRow" style="display:none;" class="row">
+      <span style="min-width:100px; font-size:13px; color:#555;">Most Recent</span>
+      <button id="mostRecentBtn"></button>
+    </div>
+    <div id="mostOpenedRow" style="display:none; margin-top:4px;" class="row">
+      <span style="min-width:100px; font-size:13px; color:#555;">Most Opened</span>
+      <button id="mostOpenedBtn"></button>
+    </div>
+  </div>
+
   <div class="row">
     <select id="select" style="flex:1; padding:6px; font-size:14px;"></select>
     <button id="pickCurriculum">Open</button>
