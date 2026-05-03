@@ -7,6 +7,7 @@ redirectIfLoggedIn();
 window.addEventListener("pageshow", (e) => { if (e.persisted) redirectIfLoggedIn(); });
 
 const usernameInput = document.getElementById("username");   // the username text field
+usernameInput.focus();
 const passwordInput = document.getElementById("password");   // the password text field
 const loginButton   = document.getElementById("loginButton"); // the Login button
 const loginMessage  = document.getElementById("loginMessage"); // the div that shows error/status text
