@@ -12,6 +12,14 @@ const __dirname = path.dirname(__filename);         // then derive __dirname fro
 const app = express();
 app.use(sessionMiddleware);
 app.use(express.json({ limit: "100mb" }));                          // raise the body limit to handle base64-encoded image/video payloads
+
+// protect the main editor page — redirect to login or curriculum picker as appropriate
+app.get(["/", "/index.html"], (req, res, next) => {
+  if (!req.session.user) return res.redirect("/login.html");
+  if (!req.query.session) return res.redirect("/curriculum.html");
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "../client")));         // serve all client-side files (HTML, JS, CSS) from the client folder
 
 app.use("/login", router);         // all /login routes handled by routes/login.js
