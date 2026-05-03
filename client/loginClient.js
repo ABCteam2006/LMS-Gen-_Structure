@@ -1,7 +1,11 @@
-// if a user is already logged in, skip the login page entirely
-if (sessionStorage.getItem("user")) {
-  window.location.replace("/curriculum.html"); // send them straight to the curriculum picker
+async function redirectIfLoggedIn() {
+  const res = await fetch("/me", { credentials: "include" });
+  if (res.ok) window.location.replace("/curriculum.html");
 }
+
+// runs on normal load and when the page is restored from the back-forward cache
+await redirectIfLoggedIn();
+window.addEventListener("pageshow", (e) => { if (e.persisted) redirectIfLoggedIn(); });
 
 const usernameInput = document.getElementById("username");   // the username text field
 const passwordInput = document.getElementById("password");   // the password text field
