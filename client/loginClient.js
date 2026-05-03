@@ -8,6 +8,14 @@ const passwordInput = document.getElementById("password");   // the password tex
 const loginButton   = document.getElementById("loginButton"); // the Login button
 const loginMessage  = document.getElementById("loginMessage"); // the div that shows error/status text
 
+usernameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") passwordInput.focus();
+});
+
+passwordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loginButton.click();
+});
+
 loginButton.addEventListener("click", async () => { // listen for a click on the login button
   const username = usernameInput.value.trim(); // read the username and strip surrounding whitespace
   const password = passwordInput.value.trim(); // read the password and strip surrounding whitespace
