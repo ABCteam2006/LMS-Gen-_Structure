@@ -4,37 +4,47 @@
     "curriculumID": 2,
     "name": "boo",
     "theme": "#12ab2b",
-    "openCount": 2,
-    "lastOpened": "2026-05-03T18:06:22.959Z"
+    "openCount": 3,
+    "lastOpened": "2026-05-09T12:27:15.312Z"
   },
   {
     "username": "user1",
     "curriculumID": 3,
     "name": "Ddjdwddww",
-    "theme": "#cd0404"
+    "theme": "#cd0404",
+    "openCount": 1,
+    "lastOpened": "2026-05-09T12:27:11.864Z"
   },
   {
     "username": "user1",
     "curriculumID": 1,
     "name": "bro",
     "theme": "#16bb37",
-    "openCount": 11,
-    "lastOpened": "2026-05-09T12:25:14.569Z"
+    "openCount": 15,
+    "lastOpened": "2026-05-09T13:15:37.569Z"
   },
   {
     "username": "user1",
     "curriculumID": 4,
     "name": "oops",
     "theme": "#d10000",
-    "openCount": 1,
-    "lastOpened": "2026-05-09T12:25:41.269Z"
+    "openCount": 2,
+    "lastOpened": "2026-05-09T12:27:18.816Z"
   },
   {
     "username": "user2",
     "curriculumID": 1,
     "name": "Curriculum 1",
     "theme": "#ffffff",
-    "openCount": 2,
-    "lastOpened": "2026-05-09T12:25:56.683Z"
+    "openCount": 4,
+    "lastOpened": "2026-05-09T12:26:57.765Z"
+  },
+  {
+    "username": "user2",
+    "curriculumID": 3,
+    "name": "Curriculum 3",
+    "theme": "#ffffff",
+    "openCount": 1,
+    "lastOpened": "2026-05-09T12:26:54.899Z"
   }
 ]

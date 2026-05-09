@@ -145,6 +145,7 @@ let mutableCount        = 0;    // increments each time an edit/delete toolbar i
 let editTarget          = null; // holds a reference to the element currently being edited, or null when not editing
 let pendingUploadContext      = null; // saves toolbar/input context while waiting for an image file to be chosen
 let pendingVideoUploadContext = null; // saves toolbar/input context while waiting for a video file to be chosen
+let pendingInPlaceElement     = null; // holds the element whose src should be updated after an in-place file upload
 
 const allowedTags = ["h1","h2","h3","h4","h5","h6","p","div","select"]; // whitelist of HTML tags usable for generic text elements
 
@@ -158,12 +159,12 @@ function createToolbar() { // clones the main toolbar and returns a fresh copy t
   nav.id = `toolContainer${toolbarCount}`; // assign a unique ID to this clone
   nav.style.display = "block";             // make it visible (the original may be hidden)
 
-  const input = nav.querySelector("input"); // find the text input inside the clone
-  if (input) {
-    input.value = "";              // clear any leftover value from the original
-    input.removeAttribute("id");  // remove the ID to avoid duplicate IDs on the page
-    input.style.display = "inline-block"; // ensure the input is visible
-  }
+  const inputs = nav.querySelectorAll("input[type='text']");
+  inputs.forEach((inp, i) => {
+    inp.value = "";
+    inp.removeAttribute("id");
+    inp.style.display = i === 0 ? "inline-block" : "none"; // second input starts hidden until an edit needs it
+  });
 
   return nav; // return the ready-to-use toolbar clone
 }
@@ -249,10 +250,85 @@ function createDragDropHeadings() { // prompts the user for terms and definition
 }
 
 // ==================================================
+// FLASHCARD BUILDER (shared by createElement and confirmInPlaceEdit)
+// ==================================================
+
+function buildFlashcardElement(termArray, defArray) {
+  const flashcardsDiv = document.createElement("div");
+  flashcardsDiv.id = `flashcardsDiv${flashSetNum}`;
+  flashSetNum++;
+  flashcardsDiv.style.cssText = "display:flex; flex-direction:column; align-items:center;";
+
+  let setIndex = 0;
+  const reviewedCards = new Set();
+
+  termArray.forEach((termText, i) => {
+    const flashcard = document.createElement("div");
+    flashcard.id = `flashcard${i}`;
+    flashcard.style.cssText = "width:300px; height:100px; border:1px solid black;";
+    if (i !== 0) flashcard.style.display = "none";
+    flashcard.dataset.cardIndex = i;
+    flashcard.dataset.reviewed  = "false";
+
+    const termEl = document.createElement("div");
+    termEl.textContent    = termText;
+    termEl.style.textAlign = "center";
+
+    const defEl = document.createElement("div");
+    defEl.textContent    = defArray[i] || "";
+    defEl.style.textAlign = "center";
+    defEl.style.display   = "none";
+
+    flashcard.appendChild(termEl);
+    flashcard.appendChild(defEl);
+    flashcardsDiv.appendChild(flashcard);
+  });
+
+  const totalCards    = termArray.length;
+  const backAndForward = document.createElement("div");
+  backAndForward.id   = "backAndForward";
+
+  const back    = document.createElement("button");
+  back.textContent = "<=";
+  const forward = document.createElement("button");
+  forward.textContent = "=>";
+
+  back.addEventListener("click", () => {
+    if (setIndex > 0) {
+      flashcardsDiv.children[setIndex].style.display = "none";
+      setIndex--;
+      flashcardsDiv.children[setIndex].style.display = "block";
+    }
+  });
+
+  forward.addEventListener("click", () => {
+    if (setIndex < totalCards - 1) {
+      flashcardsDiv.children[setIndex].style.display = "none";
+      setIndex++;
+      flashcardsDiv.children[setIndex].style.display = "block";
+    }
+  });
+
+  backAndForward.appendChild(back);
+  backAndForward.appendChild(forward);
+
+  const flashcardWrapper = document.createElement("div");
+  flashcardWrapper.classList.add("entry");
+  flashcardWrapper.dataset.id           = `entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  flashcardWrapper.dataset.curriculumID = currentCurriculumID;
+  flashcardWrapper.dataset.reviewed     = "false";
+  flashcardWrapper.dataset.totalCards   = totalCards;
+  flashcardWrapper._reviewedCards       = reviewedCards;
+  flashcardWrapper.appendChild(flashcardsDiv);
+  flashcardWrapper.appendChild(backAndForward);
+  return flashcardWrapper;
+}
+
+// ==================================================
 // ELEMENT FACTORY
 // ==================================================
 
-function createElement({ tag, type, value }) { // builds and returns a DOM element based on the given type and value
+function createElement({ tag, type, value, question = null, answer = null }) { // builds and returns a DOM element based on the given type and value
   let el;
 
   if (type === "image") {
@@ -293,6 +369,8 @@ function createElement({ tag, type, value }) { // builds and returns a DOM eleme
     const blank = document.createElement("option"); // blank first option acts as a visible placeholder
     blank.textContent = "";
     blank.value = "";
+    blank.disabled = true;
+    blank.hidden   = true;
     el.appendChild(blank);
 
     const options = [...new Set(value.split(",").map(v => v.trim()).filter(Boolean))]; // deduplicate and clean the options list
@@ -302,10 +380,7 @@ function createElement({ tag, type, value }) { // builds and returns a DOM eleme
       el.appendChild(option);
     });
 
-    const question = prompt("What's your question?");              // ask for the question text
-    if (question === null || question.trim() === "") return null;  // cancel creation if no question was given
-    const answer = prompt("What's the correct answer?");           // ask for the correct answer
-    if (answer === null || answer.trim() === "") return null;      // cancel if no answer was given
+    if (!question || !answer) return null;
 
     correctMCFlag = false; // reset the flag before scanning for the correct option
     for (let i = 0; i < el.children.length; i++) { // loop through every option in the select
@@ -336,81 +411,11 @@ function createElement({ tag, type, value }) { // builds and returns a DOM eleme
     return el; // return early — terms/defs are added separately by injectElement
 
   } else if (type === "flashcards") {
-    const terms = prompt("List terms in order (comma separated)");       // get term list from the user
-    const defs  = prompt("List definitions in order (comma separated)"); // get definition list from the user
-
-    const termArray = terms.split(",").map(v => v.trim()).filter(Boolean); // clean and split terms into an array
-    const defArray  = defs.split(",").map(v => v.trim()).filter(Boolean);  // clean and split definitions into an array
-
-    const flashcardsDiv = document.createElement("div"); // container that holds all individual flashcard elements
-    flashcardsDiv.id = `flashcardsDiv${flashSetNum}`;    // unique ID for this flashcard set
-    flashSetNum++;                                        // increment so the next set gets a different ID
-    flashcardsDiv.style.cssText = "display:flex; flex-direction:column; align-items:center;"; // stack cards and center them
-
-    let setIndex = 0;                   // tracks which card index is currently visible
-    const reviewedCards = new Set();    // tracks which card indices the student has already flipped
-
-    termArray.forEach((termText, i) => { // build one flashcard div per term
-      const flashcard = document.createElement("div");
-      flashcard.id = `flashcard${i}`;
-      flashcard.style.cssText = "width:300px; height:100px; border:1px solid black;";
-      if (i !== 0) flashcard.style.display = "none"; // only the first card is visible initially
-      flashcard.dataset.cardIndex = i;          // store the card's index for reviewed-tracking logic
-      flashcard.dataset.reviewed  = "false";    // mark this card as not yet reviewed
-
-      const termEl = document.createElement("div");
-      termEl.textContent = termText;            // display the term text on the front of the card
-      termEl.style.textAlign = "center";
-
-      const defEl = document.createElement("div");
-      defEl.textContent   = defArray[i] || ""; // display the matching definition, or empty if the arrays are mismatched
-      defEl.style.textAlign = "center";
-      defEl.style.display   = "none";           // hide the definition until the card is flipped
-
-      flashcard.appendChild(termEl);
-      flashcard.appendChild(defEl);
-      flashcardsDiv.appendChild(flashcard);
-    });
-
-    const totalCards = termArray.length; // save the count so we know when every card has been reviewed
-
-    const backAndForward = document.createElement("div"); // container for the prev/next navigation buttons
-    backAndForward.id = "backAndForward";
-
-    const back    = document.createElement("button");
-    back.textContent = "<="; // left-arrow label for the back button
-    const forward = document.createElement("button");
-    forward.textContent = "=>"; // right-arrow label for the forward button
-
-    back.addEventListener("click", () => { // go to the previous card when back is clicked
-      if (setIndex > 0) { // only navigate if we're not already at the first card
-        flashcardsDiv.children[setIndex].style.display = "none"; // hide the current card
-        setIndex--;                                               // move the index back one position
-        flashcardsDiv.children[setIndex].style.display = "block"; // show the previous card
-      }
-    });
-
-    forward.addEventListener("click", () => { // go to the next card when forward is clicked
-      if (setIndex < totalCards - 1) { // only navigate if we're not already at the last card
-        flashcardsDiv.children[setIndex].style.display = "none"; // hide the current card
-        setIndex++;                                               // advance the index
-        flashcardsDiv.children[setIndex].style.display = "block"; // show the next card
-      }
-    });
-
-    backAndForward.appendChild(back);
-    backAndForward.appendChild(forward);
-
-    const flashcardWrapper = document.createElement("div");   // top-level wrapper for the whole flashcard set
-    flashcardWrapper.classList.add("entry");                  // mark as an entry so syncAllElements picks it up
-    flashcardWrapper.dataset.id           = `entry-${Date.now()}-${Math.random().toString(36).slice(2)}`; // unique ID
-    flashcardWrapper.dataset.curriculumID = currentCurriculumID;
-    flashcardWrapper.dataset.reviewed     = "false";          // the whole set starts as not reviewed
-    flashcardWrapper.dataset.totalCards   = totalCards;        // store the total for completion-checking
-    flashcardWrapper._reviewedCards       = reviewedCards;     // attach the Set as a property (not serialized to DOM attributes)
-    flashcardWrapper.appendChild(flashcardsDiv);               // add the card elements
-    flashcardWrapper.appendChild(backAndForward);              // add the nav buttons
-    return flashcardWrapper; // return the complete flashcard set
+    const terms = prompt("List terms in order (comma separated)");
+    const defs  = prompt("List definitions in order (comma separated)");
+    const termArray = terms.split(",").map(v => v.trim()).filter(Boolean);
+    const defArray  = defs.split(",").map(v => v.trim()).filter(Boolean);
+    return buildFlashcardElement(termArray, defArray);
 
   } else {
     if (!allowedTags.includes(tag)) tag = "div"; // fall back to <div> if the tag isn't on the whitelist
@@ -596,10 +601,37 @@ function injectElement(newEl, toolbar, type, input) { // places a newly created 
 }
 
 function handleCreateElement(btn, toolbar) { // reads the button's type and input value, then delegates to createElement and injectElement
-  const type  = btn.dataset.type; // element type declared on the button (heading, image, video, etc.)
-  const tag   = btn.dataset.tag;  // HTML tag to use when building the element
-  const input = toolbar.querySelector("input"); // the text input in the same toolbar as the clicked button
-  const value = input ? input.value.trim() : ""; // read and trim the value, default to empty string if no input
+  const type      = btn.dataset.type;
+  const tag       = btn.dataset.tag;
+  const allInputs = toolbar.querySelectorAll("input[type='text']");
+  const input     = allInputs[0];
+  const value     = input ? input.value.trim() : "";
+
+  if (type === "multipleChoice") {
+    const input2 = allInputs[1];
+    const input3 = allInputs[2];
+
+    if (!input2 || input2.style.display === "none") {
+      // First click: reveal the question and correct-answer inputs
+      if (input2) { input2.placeholder = "Question";       input2.style.display = "inline-block"; }
+      if (input3) { input3.placeholder = "Correct answer"; input3.style.display = "inline-block"; }
+      return;
+    }
+
+    // Second click: create with all three inputs
+    const question = input2.value.trim();
+    const answer   = input3 ? input3.value.trim() : "";
+    if (!value || !question || !answer) return;
+
+    const newEl = createElement({ tag, type, value, question, answer });
+    if (!newEl) return;
+
+    if (input2) { input2.value = ""; input2.style.display = "none"; input2.placeholder = ""; }
+    if (input3) { input3.value = ""; input3.style.display = "none"; input3.placeholder = ""; }
+
+    injectElement(newEl, toolbar, type, input);
+    return;
+  }
 
   if (type === "image") {
     if (value) { // a URL was already typed into the input
@@ -639,7 +671,7 @@ function handleCreateElement(btn, toolbar) { // reads the button's type and inpu
     return;
   }
 
-  const selfPrompted = type === "dragAndDrop" || type === "flashcards" || type === "multipleChoice"; // these types collect input via their own prompts
+  const selfPrompted = type === "dragAndDrop" || type === "flashcards"; // these types collect input via their own prompts
   if (!value && !selfPrompted) return; // skip if input is empty and the type isn't self-prompting
 
   const newEl = createElement({ tag, type, value });
@@ -650,6 +682,218 @@ function handleCreateElement(btn, toolbar) { // reads the button's type and inpu
 // ==================================================
 // HANDLE EDIT / DELETE ACTIONS
 // ==================================================
+
+function confirmInPlaceEdit(element, toolbar) {
+  const inputs = toolbar ? toolbar.querySelectorAll("input[type='text']") : [];
+  const value  = inputs[0] ? inputs[0].value.trim() : "";
+  const value2 = inputs[1] ? inputs[1].value.trim() : "";
+  const value3 = inputs[2] ? inputs[2].value.trim() : "";
+
+  const finalize = () => {
+    if (inputs[0]) inputs[0].value = "";
+    if (inputs[1]) { inputs[1].value = ""; inputs[1].style.display = "none"; }
+    if (inputs[2]) { inputs[2].value = ""; inputs[2].style.display = "none"; inputs[2].placeholder = ""; }
+    editTarget = null;
+    syncAllElements();
+  };
+
+  // --- Image ---
+  if (element.tagName === "IMG") {
+    if (value) {
+      element.src = value;
+      finalize();
+    } else {
+      const useUrl = confirm("Click OK to enter a URL, or Cancel to upload from device.");
+      if (useUrl) {
+        const url = prompt("Enter image URL:");
+        if (!url) return;
+        element.src = url;
+        finalize();
+      } else {
+        pendingInPlaceElement = element;
+        document.getElementById("imageUpload").click();
+      }
+    }
+    return;
+  }
+
+  // --- Video (YouTube embed iframe) ---
+  if (element.tagName === "IFRAME") {
+    if (value) {
+      const embed = getYouTubeEmbedURL(value);
+      if (!embed) return;
+      element.src = embed;
+      element.dataset.watchUrl = value;
+      finalize();
+    } else {
+      const useUrl = confirm("Click OK to enter a YouTube URL, or Cancel to upload from device.");
+      if (useUrl) {
+        const url = prompt("Enter YouTube URL:");
+        if (!url) return;
+        const embed = getYouTubeEmbedURL(url);
+        if (!embed) return;
+        element.src = embed;
+        element.dataset.watchUrl = url;
+        finalize();
+      } else {
+        pendingInPlaceElement = element;
+        document.getElementById("videoUpload").click();
+      }
+    }
+    return;
+  }
+
+  // --- Video (native file) ---
+  if (element.tagName === "VIDEO") {
+    if (value) {
+      element.src = value;
+      finalize();
+    } else {
+      const useUrl = confirm("Click OK to enter a URL, or Cancel to upload from device.");
+      if (useUrl) {
+        const url = prompt("Enter video URL:");
+        if (!url) return;
+        element.src = url;
+        finalize();
+      } else {
+        pendingInPlaceElement = element;
+        document.getElementById("videoUpload").click();
+      }
+    }
+    return;
+  }
+
+  // --- Ordered List ---
+  if (element.tagName === "OL") {
+    if (!value) return;
+    element.replaceChildren();
+    value.split(",").map(v => v.trim()).filter(Boolean).forEach(text => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      element.appendChild(li);
+    });
+    finalize();
+    return;
+  }
+
+  // --- Multiple Choice (label wrapping a select) ---
+  if (element.tagName === "LABEL") {
+    if (!value) return;
+    const select = element.querySelector("select");
+    if (!select) return;
+
+    const question      = value2 || select.dataset.question || "";
+    const correctAnswer = value3 || select.dataset.correctAnswer || "";
+
+    select.replaceChildren();
+    const blank = document.createElement("option");
+    blank.value    = "";
+    blank.textContent = "";
+    blank.disabled = true;
+    blank.hidden   = true;
+    select.appendChild(blank);
+
+    [...new Set(value.split(",").map(v => v.trim()).filter(Boolean))].forEach(text => {
+      const opt = document.createElement("option");
+      opt.textContent = text;
+      if (text === correctAnswer) opt.dataset.correct = "true";
+      select.appendChild(opt);
+    });
+
+    const textNode = [...element.childNodes].find(n => n.nodeType === Node.TEXT_NODE);
+    if (textNode) textNode.textContent = question + " ";
+    select.dataset.question      = question;
+    select.dataset.correctAnswer = correctAnswer;
+    finalize();
+    return;
+  }
+
+  // --- Drag & Drop ---
+  if (element.id === "dragObject") {
+    if (!value) return;
+    const wrapper = element.closest(".element-wrapper");
+
+    element.dataset.matched = 0;
+    element.replaceChildren();
+
+    const oldMatchHeaders = wrapper && wrapper.querySelector("#matchHeaders");
+    if (oldMatchHeaders) oldMatchHeaders.remove();
+
+    const termsOl = document.createElement("ol");
+    termsOl.id = "termsOl";
+    const defsOl = document.createElement("ol");
+    defsOl.id = "defsOl";
+
+    let tCount = 0;
+    value.split(",").map(v => v.trim()).filter(Boolean).forEach(text => {
+      const li = document.createElement("li");
+      li.draggable = true;
+      li.id = `terms${tCount}`;
+      li.dataset.originOl    = "termsOl";
+      li.dataset.originIndex = tCount;
+      li.textContent = text;
+      tCount++;
+      termsOl.appendChild(li);
+    });
+
+    let dCount = 0;
+    (value2 || value).split(",").map(v => v.trim()).filter(Boolean).forEach(text => {
+      const li = document.createElement("li");
+      li.draggable = true;
+      li.id = `defs${dCount}`;
+      li.dataset.originOl    = "defsOl";
+      li.dataset.originIndex = dCount;
+      li.textContent = text;
+      dCount++;
+      defsOl.appendChild(li);
+    });
+
+    element.dataset.totalPairs = tCount;
+
+    const termsH = document.createElement("h6");
+    termsH.id = "terms";
+    termsH.textContent = "Terms";
+    termsH.appendChild(termsOl);
+
+    const defsH = document.createElement("h6");
+    defsH.id = "defs";
+    defsH.textContent = "Definitions";
+    defsH.appendChild(defsOl);
+
+    const newMatchHeaders = document.createElement("div");
+    newMatchHeaders.id = "matchHeaders";
+    newMatchHeaders.appendChild(termsH);
+    newMatchHeaders.appendChild(defsH);
+
+    const editOrDeleteNav = wrapper && wrapper.querySelector("[id^='editOrDelete']");
+    if (editOrDeleteNav) wrapper.insertBefore(newMatchHeaders, editOrDeleteNav);
+    else if (wrapper) wrapper.appendChild(newMatchHeaders);
+
+    finalize();
+    return;
+  }
+
+  // --- Flashcards ---
+  if (element.dataset.totalCards) {
+    if (!value) return;
+    const termArray = value.split(",").map(v => v.trim()).filter(Boolean);
+    const defArray  = value2.split(",").map(v => v.trim()).filter(Boolean);
+
+    const newWrapper = buildFlashcardElement(termArray, defArray);
+    newWrapper.dataset.id           = element.dataset.id;
+    newWrapper.dataset.curriculumID = element.dataset.curriculumID || currentCurriculumID;
+    element.replaceWith(newWrapper);
+    finalize();
+    return;
+  }
+
+  // --- Plain heading / text ---
+  if (["H1","H2","H3","H4","H5","H6","P","DIV"].includes(element.tagName)) {
+    if (!value) return;
+    element.textContent = value;
+    finalize();
+  }
+}
 
 function handleAction(actionBtn) { // handles a click on an Edit or Delete button inside an element wrapper
   const action  = actionBtn.dataset.action; // "edit" or "delete"
@@ -678,94 +922,53 @@ function handleAction(actionBtn) { // handles a click on an Edit or Delete butto
   }
 
   if (action === "edit") {
-    if (element.id === "dragObject") { // drag-and-drop has a special edit flow — it re-prompts for terms and defs
-      const newTerms = prompt("Enter new terms (in order, comma separated):");
-      const newDefs  = prompt("Enter new definitions (in order, comma separated):");
-      if (!newTerms || !newDefs) return; // cancel if either prompt was dismissed
-
-      element.dataset.matched = 0; // reset the match counter since we're replacing all pairs
-      element.replaceChildren();   // clear the drop zone
-
-      const oldMatchHeaders = wrapper.querySelector("#matchHeaders");
-      if (oldMatchHeaders) oldMatchHeaders.remove(); // remove the old terms/defs columns
-
-      const termsOl = document.createElement("ol");
-      termsOl.id = "termsOl";
-      const defsOl = document.createElement("ol");
-      defsOl.id = "defsOl";
-
-      let tCount = 0;
-      newTerms.split(",").map(v => v.trim()).filter(Boolean).forEach(text => { // rebuild the terms list from new input
-        const li = document.createElement("li");
-        li.draggable = true;
-        li.id = `terms${tCount}`;
-        li.dataset.originOl    = "termsOl";
-        li.dataset.originIndex = tCount;
-        li.textContent = text;
-        tCount++;
-        termsOl.appendChild(li);
-      });
-
-      let dCount = 0;
-      newDefs.split(",").map(v => v.trim()).filter(Boolean).forEach(text => { // rebuild the defs list from new input
-        const li = document.createElement("li");
-        li.draggable = true;
-        li.id = `defs${dCount}`;
-        li.dataset.originOl    = "defsOl";
-        li.dataset.originIndex = dCount;
-        li.textContent = text;
-        dCount++;
-        defsOl.appendChild(li);
-      });
-
-      element.dataset.totalPairs = tCount; // update the total pairs count to match the new term list
-
-      const termsH = document.createElement("h6");
-      termsH.id = "terms";
-      termsH.textContent = "Terms";
-      termsH.appendChild(termsOl);
-
-      const defsH = document.createElement("h6");
-      defsH.id = "defs";
-      defsH.textContent = "Definitions";
-      defsH.appendChild(defsOl);
-
-      const newMatchHeaders = document.createElement("div");
-      newMatchHeaders.id = "matchHeaders";
-      newMatchHeaders.appendChild(termsH);
-      newMatchHeaders.appendChild(defsH);
-
-      const editOrDeleteNav = wrapper.querySelector("[id^='editOrDelete']"); // find the edit/delete bar to use as an insertion anchor
-      wrapper.insertBefore(newMatchHeaders, editOrDeleteNav); // insert the new columns just before the edit/delete bar
-
-      syncAllElements(); // persist the updated drag-and-drop to the server
+    if (editTarget === element) { // second Edit click on the same element — confirm the change in-place if the type is simple enough
+      confirmInPlaceEdit(element, toolbar);
       return;
     }
 
     if (!toolbar) return;
-    const input = toolbar.querySelector("input");
+    const allInputs = toolbar.querySelectorAll("input[type='text']");
+    const input  = allInputs[0];
+    const input2 = allInputs[1];
     if (!input) return;
 
-    if (element.tagName === "IMG" || element.tagName === "IFRAME" || element.tagName === "VIDEO") {
-      input.value = element.tagName === "IFRAME"
-        ? (element.dataset.watchUrl || element.src) // prefer the original watch URL over the embed URL for iframes
-        : element.src; // for img/video just use the src directly
-    } else if (element.tagName === "OL") {
-      input.value = Array.from(element.children).map(c => c.textContent).join(", "); // rebuild the comma-separated string from the <li> items
+    // Hide extra inputs by default; shown only for types that need them
+    const input3 = allInputs[2];
+    if (input2) { input2.value = ""; input2.style.display = "none"; input2.placeholder = ""; }
+    if (input3) { input3.value = ""; input3.style.display = "none"; input3.placeholder = ""; }
+
+    if (element.id === "dragObject") {
+      // Pre-fill terms → main input, defs → second input so the user can edit in-line
+      const termsOl = wrapper.querySelector("#termsOl");
+      const defsOl  = wrapper.querySelector("#defsOl");
+      input.value  = termsOl ? Array.from(termsOl.querySelectorAll("li")).map(li => li.textContent).join(", ") : "";
+      if (input2) { input2.value = defsOl ? Array.from(defsOl.querySelectorAll("li")).map(li => li.textContent).join(", ") : ""; input2.placeholder = "Definitions"; input2.style.display = "inline-block"; }
+
     } else if (element.tagName === "LABEL") {
       const select = element.querySelector("select");
-      if (select) {
-        input.value = Array.from(select.children)
-          .filter(c => c.textContent !== "")  // skip the blank placeholder option
-          .map(c => c.textContent)
-          .join(", "); // rebuild the comma-separated options string
-      }
+      input.value  = select ? Array.from(select.children).filter(c => c.textContent !== "").map(c => c.textContent).join(", ") : "";
+      if (input2) { input2.value = select ? (select.dataset.question || "") : ""; input2.placeholder = "Question"; input2.style.display = "inline-block"; }
+      if (input3) { input3.value = select ? (select.dataset.correctAnswer || "") : ""; input3.placeholder = "Correct answer"; input3.style.display = "inline-block"; }
+
+    } else if (element.dataset.totalCards) {
+      // Pre-fill terms and defs from the current flashcard set
+      const cards    = Array.from(element.querySelectorAll("[id^='flashcard']")).filter(c => /^flashcard\d+$/.test(c.id));
+      input.value  = cards.map(c => c.children[0] ? c.children[0].textContent : "").join(", ");
+      if (input2) { input2.value = cards.map(c => c.children[1] ? c.children[1].textContent : "").join(", "); input2.placeholder = "Definitions"; input2.style.display = "inline-block"; }
+
+    } else if (element.tagName === "IMG" || element.tagName === "IFRAME" || element.tagName === "VIDEO") {
+      input.value = element.tagName === "IFRAME" ? (element.dataset.watchUrl || element.src) : element.src;
+
+    } else if (element.tagName === "OL") {
+      input.value = Array.from(element.children).map(c => c.textContent).join(", ");
+
     } else {
-      input.value = element.textContent; // for headings and plain text, just copy the text
+      input.value = element.textContent;
     }
 
-    editTarget = element; // mark this element as the edit target so injectElement knows to replace it
-    input.focus(); // focus the input so the user can start typing immediately
+    editTarget = element;
+    input.focus();
   }
 }
 
@@ -820,36 +1023,54 @@ document.addEventListener("click", e => { // single delegated listener that hand
 // IMAGE UPLOAD
 // ==================================================
 
-document.getElementById("imageUpload").addEventListener("change", e => { // fires when the user picks an image file
-  const file = e.target.files[0]; // get the selected file
-  if (!file || !pendingUploadContext) { pendingUploadContext = null; return; } // bail if no file or no context was saved
-
-  const { toolbar, input, tag } = pendingUploadContext; // retrieve the saved toolbar context
-  pendingUploadContext = null; // clear it so it's not accidentally reused
-  e.target.value = "";         // reset the file input so the same file can be selected again later
-
-  const reader = new FileReader(); // create a FileReader to convert the file to a base64 data URL
-  reader.onload = ev => {          // fires when the file has been fully read
-    const newEl = createElement({ tag, type: "image", value: ev.target.result }); // build the image element with the base64 data
-    if (newEl) injectElement(newEl, toolbar, "image", input); // inject it into the page
-  };
-  reader.readAsDataURL(file); // start reading the file
-});
-
-document.getElementById("videoUpload").addEventListener("change", e => { // fires when the user picks a video file
+document.getElementById("imageUpload").addEventListener("change", e => {
   const file = e.target.files[0];
-  if (!file || !pendingVideoUploadContext) { pendingVideoUploadContext = null; return; }
-
-  const { toolbar, input, tag } = pendingVideoUploadContext; // retrieve the saved video upload context
-  pendingVideoUploadContext = null;
   e.target.value = "";
 
+  if (pendingInPlaceElement) {
+    const el = pendingInPlaceElement;
+    pendingInPlaceElement = null;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { el.src = ev.target.result; editTarget = null; syncAllElements(); };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  if (!file || !pendingUploadContext) { pendingUploadContext = null; return; }
+  const { toolbar, input, tag } = pendingUploadContext;
+  pendingUploadContext = null;
   const reader = new FileReader();
   reader.onload = ev => {
-    const newEl = createElement({ tag, type: "video", value: ev.target.result }); // build the video element with base64 data
+    const newEl = createElement({ tag, type: "image", value: ev.target.result });
+    if (newEl) injectElement(newEl, toolbar, "image", input);
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("videoUpload").addEventListener("change", e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+
+  if (pendingInPlaceElement) {
+    const el = pendingInPlaceElement;
+    pendingInPlaceElement = null;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { el.src = ev.target.result; editTarget = null; syncAllElements(); };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  if (!file || !pendingVideoUploadContext) { pendingVideoUploadContext = null; return; }
+  const { toolbar, input, tag } = pendingVideoUploadContext;
+  pendingVideoUploadContext = null;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const newEl = createElement({ tag, type: "video", value: ev.target.result });
     if (newEl) injectElement(newEl, toolbar, "video", input);
   };
-  reader.readAsDataURL(file); // start reading the video file as a data URL
+  reader.readAsDataURL(file);
 });
 
 // ==================================================
