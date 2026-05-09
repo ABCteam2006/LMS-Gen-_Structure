@@ -689,10 +689,13 @@ function confirmInPlaceEdit(element, toolbar) {
   const value2 = inputs[1] ? inputs[1].value.trim() : "";
   const value3 = inputs[2] ? inputs[2].value.trim() : "";
 
+  const editBtn = toolbar ? toolbar.closest(".element-wrapper")?.querySelector("[data-action='edit']") : null;
+
   const finalize = () => {
     if (inputs[0]) inputs[0].value = "";
     if (inputs[1]) { inputs[1].value = ""; inputs[1].style.display = "none"; }
     if (inputs[2]) { inputs[2].value = ""; inputs[2].style.display = "none"; inputs[2].placeholder = ""; }
+    if (editBtn) editBtn.textContent = "Edit";
     editTarget = null;
     syncAllElements();
   };
@@ -967,6 +970,8 @@ function handleAction(actionBtn) { // handles a click on an Edit or Delete butto
       input.value = element.textContent;
     }
 
+    const editBtnEl = wrapper.querySelector("[data-action='edit']");
+    if (editBtnEl) editBtnEl.textContent = "Save";
     editTarget = element;
     input.focus();
   }
@@ -1032,7 +1037,13 @@ document.getElementById("imageUpload").addEventListener("change", e => {
     pendingInPlaceElement = null;
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => { el.src = ev.target.result; editTarget = null; syncAllElements(); };
+    reader.onload = ev => {
+      el.src = ev.target.result;
+      const btn = el.closest(".element-wrapper")?.querySelector("[data-action='edit']");
+      if (btn) btn.textContent = "Edit";
+      editTarget = null;
+      syncAllElements();
+    };
     reader.readAsDataURL(file);
     return;
   }
@@ -1057,7 +1068,13 @@ document.getElementById("videoUpload").addEventListener("change", e => {
     pendingInPlaceElement = null;
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => { el.src = ev.target.result; editTarget = null; syncAllElements(); };
+    reader.onload = ev => {
+      el.src = ev.target.result;
+      const btn = el.closest(".element-wrapper")?.querySelector("[data-action='edit']");
+      if (btn) btn.textContent = "Edit";
+      editTarget = null;
+      syncAllElements();
+    };
     reader.readAsDataURL(file);
     return;
   }
