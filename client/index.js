@@ -15,17 +15,17 @@ let currentUsername;             // username of the logged-in user, filled by ge
 
 async function initCurriculum() { // fetches and renders all saved entries for the current curriculum on page load
   try {
-    const params  = new URLSearchParams(window.location.search); // parse the ?session=... query string from the URL
-    const session = params.get("session"); // extract the curriculum ID from the URL
+    const params  = new URLSearchParams(window.location.search); // parse the ?curriculum=... query string from the URL
+    const curriculum = params.get("curriculum"); // extract the curriculum ID from the URL
 
     const [entriesRes, metaRes] = await Promise.all([ // fetch entries + curriculum metadata in parallel; destructure results in order
       fetch("http://localhost:3000/entries", { credentials: "include" }),        // fetch all saved entries for this user
-      fetch(`/curriculum/meta?session=${session}`, { credentials: "include" }), // fetch this curriculum's name and theme
+      fetch(`/curriculum/meta?curriculum=${curriculum}`, { credentials: "include" }), // fetch this curriculum's name and theme
       getUsername() // also fetch the current username (third promise; result is stored in currentUsername directly)
     ]);
 
     const data = await entriesRes.json();           // parse the entries response
-    currentCurriculumID = parseInt(session, 10);    // store the curriculum ID as a number globally
+    currentCurriculumID = parseInt(curriculum, 10);    // store the curriculum ID as a number globally
     console.log("curriculumID:", currentCurriculumID, "username:", currentUsername);
 
     if (metaRes.ok) { // only apply theme/name if the meta request succeeded

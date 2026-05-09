@@ -18,21 +18,23 @@
     "curriculumID": 1,
     "name": "bro",
     "theme": "#16bb37",
-    "openCount": 2,
-    "lastOpened": "2026-05-03T18:06:12.635Z"
+    "openCount": 11,
+    "lastOpened": "2026-05-09T12:25:14.569Z"
   },
   {
     "username": "user1",
     "curriculumID": 4,
-    "name": "wow",
-    "theme": "#ffffff"
+    "name": "oops",
+    "theme": "#d10000",
+    "openCount": 1,
+    "lastOpened": "2026-05-09T12:25:41.269Z"
   },
   {
     "username": "user2",
     "curriculumID": 1,
     "name": "Curriculum 1",
     "theme": "#ffffff",
-    "openCount": 1,
-    "lastOpened": "2026-05-03T18:09:24.393Z"
+    "openCount": 2,
+    "lastOpened": "2026-05-09T12:25:56.683Z"
   }
 ]

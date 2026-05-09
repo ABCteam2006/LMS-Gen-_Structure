@@ -32,7 +32,7 @@ async function loadCurriculum() { // fetches the user's curricula from the serve
     curriculumList = data.curriculums; // store the array of curriculum objects locally
 
     if (curriculumList.length === 0) { // if the user has no curricula yet
-      window.location.assign("http://localhost:3000/?session=1"); // send them to the editor with a default session
+      window.location.assign("http://localhost:3000/?curriculum=1"); // send them to the editor with a default curriculum
       return; // stop further processing
     }
 
@@ -72,7 +72,7 @@ function openCurriculum(id) { // records the open event then navigates to the ed
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ curriculumID: id })
   }).catch(() => {}); // fire-and-forget; don't block navigation on failure
-  window.location.assign(`http://localhost:3000/?session=${id}`);
+  window.location.assign(`http://localhost:3000/?curriculum=${id}`);
 }
 
 function renderQuickAccess() { // shows most-recent and most-opened quick-access buttons based on tracking data

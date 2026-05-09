@@ -16,7 +16,7 @@ app.use(express.json({ limit: "100mb" }));                          // raise the
 // protect the main editor page — redirect to login or curriculum picker as appropriate
 app.get(["/", "/index.html"], (req, res, next) => {
   if (!req.session.user) return res.redirect("/login.html");
-  if (!req.query.session) return res.redirect("/curriculum.html");
+  if (!req.query.curriculum) return res.redirect("/curriculum.html");
   next();
 });
 

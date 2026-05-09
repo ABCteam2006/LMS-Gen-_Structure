@@ -53,14 +53,14 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /curriculum/meta?session=ID — returns the name and theme for a single curriculum
+// GET /curriculum/meta?curriculum=ID — returns the name and theme for a single curriculum
 router.get("/meta", async (req, res) => {
   if (!req.session.user)
     return res.status(401).json({ status: "error", message: "Unauthorized" });
 
   const username = req.session.user.username;
-  const id = parseInt(req.query.session, 10); // parse the session query param as a number to match how IDs are stored
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid session" });
+  const id = parseInt(req.query.curriculum, 10); // parse the curriculum query param as a number to match how IDs are stored
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid curriculum" });
 
   try {
     const meta = await readMeta();
