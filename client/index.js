@@ -1007,7 +1007,13 @@ function handleAction(actionBtn) { // handles a click on an Edit or Delete butto
       if (input2) { input2.value = cards.map(c => c.children[1] ? c.children[1].textContent : "").join(", "); input2.placeholder = "Definitions"; input2.style.display = "inline-block"; }
 
     } else if (element.tagName === "IMG" || element.tagName === "IFRAME" || element.tagName === "VIDEO" || element.tagName === "AUDIO") {
-      input.value = element.tagName === "IFRAME" ? (element.dataset.watchUrl || element.src) : element.src;
+      if (element.tagName === "IFRAME") {
+        input.value = element.dataset.watchUrl || element.src;
+      } else if (element.src.startsWith("data:")) {
+        input.value = ""; // uploaded file — leave blank so Save triggers the upload/link prompt
+      } else {
+        input.value = element.src;
+      }
 
     } else if (element.tagName === "OL") {
       input.value = Array.from(element.children).map(c => c.textContent).join(", ");
