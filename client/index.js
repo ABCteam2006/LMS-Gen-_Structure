@@ -355,6 +355,12 @@ function createElement({ tag, type, value, question = null, answer = null }) { /
       el.dataset.watchUrl = value; // store the original watch URL so it can be restored when editing
     }
 
+  } else if (type === "audio") {
+    el = document.createElement("audio");
+    el.src      = value;
+    el.controls = true;
+    el.style.width = "100%";
+
   } else if (type === "orderedList") {
     el = document.createElement("ol");
     value.split(",").map(v => v.trim()).filter(Boolean).forEach(text => { // split the input into individual items
@@ -512,6 +518,7 @@ async function syncAllElements() { // serializes every entry on the page and sen
         el.tagName === "IMG"    ? "image"         : // classify the element type by its tag
         el.tagName === "IFRAME" ? "video"          :
         el.tagName === "VIDEO"  ? "video"          :
+        el.tagName === "AUDIO"  ? "audio"          :
         el.tagName === "OL"     ? "orderedList"    :
         isLabel                 ? "multipleChoice" :
         isDrag                  ? "dragAndDrop"    :
@@ -630,6 +637,25 @@ function handleCreateElement(btn, toolbar) { // reads the button's type and inpu
     if (input3) { input3.value = ""; input3.style.display = "none"; input3.placeholder = ""; }
 
     injectElement(newEl, toolbar, type, input);
+    return;
+  }
+
+  if (type === "audio") {
+    if (value) {
+      const newEl = createElement({ tag, type, value });
+      if (newEl) injectElement(newEl, toolbar, type, input);
+    } else {
+      const useUrl = confirm("Click OK to enter a URL, or Cancel to upload an audio file from your device.");
+      if (useUrl) {
+        const url = prompt("Enter audio URL:");
+        if (!url) return;
+        const newEl = createElement({ tag, type, value: url });
+        if (newEl) injectElement(newEl, toolbar, type, input);
+      } else {
+        pendingUploadContext = { toolbar, input, tag };
+        document.getElementById("audioUpload").click();
+      }
+    }
     return;
   }
 
@@ -761,6 +787,26 @@ function confirmInPlaceEdit(element, toolbar) {
       } else {
         pendingInPlaceElement = element;
         document.getElementById("videoUpload").click();
+      }
+    }
+    return;
+  }
+
+  // --- Audio ---
+  if (element.tagName === "AUDIO") {
+    if (value) {
+      element.src = value;
+      finalize();
+    } else {
+      const useUrl = confirm("Click OK to enter a URL, or Cancel to upload an audio file from your device.");
+      if (useUrl) {
+        const url = prompt("Enter audio URL:");
+        if (!url) return;
+        element.src = url;
+        finalize();
+      } else {
+        pendingInPlaceElement = element;
+        document.getElementById("audioUpload").click();
       }
     }
     return;
@@ -960,7 +1006,7 @@ function handleAction(actionBtn) { // handles a click on an Edit or Delete butto
       input.value  = cards.map(c => c.children[0] ? c.children[0].textContent : "").join(", ");
       if (input2) { input2.value = cards.map(c => c.children[1] ? c.children[1].textContent : "").join(", "); input2.placeholder = "Definitions"; input2.style.display = "inline-block"; }
 
-    } else if (element.tagName === "IMG" || element.tagName === "IFRAME" || element.tagName === "VIDEO") {
+    } else if (element.tagName === "IMG" || element.tagName === "IFRAME" || element.tagName === "VIDEO" || element.tagName === "AUDIO") {
       input.value = element.tagName === "IFRAME" ? (element.dataset.watchUrl || element.src) : element.src;
 
     } else if (element.tagName === "OL") {
@@ -1086,6 +1132,37 @@ document.getElementById("videoUpload").addEventListener("change", e => {
   reader.onload = ev => {
     const newEl = createElement({ tag, type: "video", value: ev.target.result });
     if (newEl) injectElement(newEl, toolbar, "video", input);
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("audioUpload").addEventListener("change", e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+
+  if (pendingInPlaceElement) {
+    const el = pendingInPlaceElement;
+    pendingInPlaceElement = null;
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      el.src = ev.target.result;
+      const btn = el.closest(".element-wrapper")?.querySelector("[data-action='edit']");
+      if (btn) btn.textContent = "Edit";
+      editTarget = null;
+      syncAllElements();
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  if (!file || !pendingUploadContext) { pendingUploadContext = null; return; }
+  const { toolbar, input, tag } = pendingUploadContext;
+  pendingUploadContext = null;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const newEl = createElement({ tag, type: "audio", value: ev.target.result });
+    if (newEl) injectElement(newEl, toolbar, "audio", input);
   };
   reader.readAsDataURL(file);
 });

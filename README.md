@@ -55,6 +55,7 @@ LMS Instructional Designer App
 1. [How to Create a User Journey Map with Example](https://www.youtube.com/watch?v=NdJV8yuqBEA)
 1. [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams)
 1. [<input type="range"> HTML attribute value](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/range)
+1.[<input type="range"> HTML attribute value](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/range)
 ---
 
 *License*
